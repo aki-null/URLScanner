@@ -354,13 +354,13 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 			groupBuffer[j]++;
 		}
 		
-		// Parentheses need to have increased weight if the group has not been trimmed.
+		// Parentheses need to have increased weight.
 		// This is required to avoid two groups from getting concatenated.
 		// e.g. [http://aki-null.net(]http://aki-null.net)
 		if (trimmed == 0) {
 			groupBuffer[currentLoc - 1] += 2;
-			groupBuffer[currentLoc + currentLen] += 2;
 		}
+		groupBuffer[currentLoc + currentLen] += 2;
 	}
 	free(groups);
 	
