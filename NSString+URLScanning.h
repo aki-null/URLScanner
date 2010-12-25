@@ -38,8 +38,9 @@
 
 @interface NSString (URLScanning)
 
-- (NSArray *)rangesOfURL;
-- (NSArray *)rangesOfURLFrom:(NSUInteger)startIndex;
+- (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs;
+- (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs startFrom:(NSUInteger)startIndex;
+
 - (BOOL)containsURL;
 
 @end

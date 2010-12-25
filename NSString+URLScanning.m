@@ -260,11 +260,13 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 	return NO;
 }
 
-- (NSArray *)rangesOfURLFrom:(NSUInteger)startIndex {
+- (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs startFrom:(NSUInteger)startIndex {
 	const NSUInteger length = [self length] - startIndex;
 	
+	*numberOfURLs = 0;
+	
 	if (length < START_PTNS_MIN_LENGTH) {
-		return [NSArray array];
+		return NULL;
 	}
 	
 	// Copy the content of NSString into unichar array
@@ -276,7 +278,7 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 	// Byte 1: Location
 	// Byte 2: Length
 	// Byte 3: Trimmed Flag
-	NSUInteger *groups = calloc((length / START_PTNS_MIN_LENGTH + 1) * 3, sizeof(NSUInteger));
+	NSUInteger *groups = calloc(length / START_PTNS_MIN_LENGTH * 3, sizeof(NSUInteger));
 	NSUInteger currentGroupIndex = 0;
 	for (NSUInteger i = 0; i < length; i++) {
 		unichar currentChar = charArray[i];
@@ -398,10 +400,11 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 	if (currentGroupIndex == 0) {
 		free(finalGroups);
 		free(charArray);
-		return [NSArray array];
+		return NULL;
 	}
 	
-	NSMutableArray *allMatches = [[NSMutableArray alloc] init];
+	NSRange *allMatches = malloc(sizeof(NSRange) * (length / START_PTNS_MIN_LENGTH));
+	
 	// Finally scan for URLs in groups
 	for (NSUInteger i = 0; i < currentGroupIndex; i++) {
 		NSUInteger startPos = finalGroups[i * 2];
@@ -422,7 +425,10 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 				
 				// Offset location to be relative to the real string length
 				urlRange.location += startIndex;
-				[allMatches addObject:[NSValue valueWithRange:urlRange]];
+				
+				// Record the range of URLs
+				allMatches[*numberOfURLs] = urlRange;
+				(*numberOfURLs)++;
 			}
 		}
 	}
@@ -430,11 +436,16 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 	free(finalGroups);
 	free(charArray);
 	
-	return [allMatches autorelease];
+	// Create autoreleased mutable byte array
+	NSRange *result = [[NSMutableData dataWithLength:*numberOfURLs * sizeof(NSRange)] mutableBytes];
+	memcpy(result, allMatches, sizeof(NSRange) * *numberOfURLs);
+	free(allMatches);
+	
+	return result;
 }
 
-- (NSArray *)rangesOfURL {
-	return [self rangesOfURLFrom:0];
+- (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs {
+	return [self rangesOfURL:numberOfURLs startFrom:0];
 }
 
 - (BOOL)containsURL {

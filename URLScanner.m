@@ -4,9 +4,11 @@
 void testString(NSString *testTarget) {
 	NSLog(@"Testing: %@", testTarget);
 	
-	NSArray *allURLRanges = [testTarget rangesOfURL];
-	for (NSValue *currentRange in allURLRanges) {
-		NSLog(@"'%@'", [testTarget substringWithRange:[currentRange rangeValue]]);
+	NSUInteger numberOfURLs;
+	NSRange *allURLRanges = [testTarget rangesOfURL:&numberOfURLs];
+	
+	for (NSUInteger i = 0; i < numberOfURLs; i++) {
+		NSLog(@"'%@'", [testTarget substringWithRange:allURLRanges[i]]);
 	}
 	
 	NSLog(@"------------------------------");
