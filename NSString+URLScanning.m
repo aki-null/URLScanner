@@ -251,9 +251,9 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 			// Check if the string matches the current pattern
 			BOOL success = YES;
 			for (NSUInteger k = 0; k < START_PTNS_MAX_LENGTH; k++) {
-				unichar currentPatternChar = currentStr[k];
+				unichar currentPatternChar = unicharToLower(currentStr[k]);
 				if (currentPatternChar != 0x00 &&
-					currentPatternChar != charArray[i + k]) {
+					currentPatternChar != unicharToLower(charArray[i + k])) {
 					success = NO;
 					break;
 				}
