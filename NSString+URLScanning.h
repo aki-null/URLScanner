@@ -40,6 +40,7 @@
 
 - (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs;
 - (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs startFrom:(NSUInteger)startIndex;
+- (NSArray *)getURLStrings;
 
 - (BOOL)containsURL;
 

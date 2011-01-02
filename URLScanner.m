@@ -12,6 +12,13 @@ void testString(NSString *testTarget) {
 	}
 	
 	NSLog(@"------------------------------");
+	
+	NSArray *allURLStrings = [testTarget getURLStrings];
+	for (NSString *currentURL in allURLStrings) {
+		NSLog(@"'%@'", currentURL);
+	}
+	
+	NSLog(@"------------------------------");
 }
 
 int main (int argc, const char * argv[]) {
@@ -33,6 +40,8 @@ int main (int argc, const char * argv[]) {
 	testString(@"[test]http://");
 	testString(@"test [[test (http://test.com) http://(hello).com http://] http://] test");
 	testString(@"()()()()()http://");
+	testString(@"HtTPs://test.com");
+	testString(@"hTTP://test.com");
     
     [pool drain];
     return 0;

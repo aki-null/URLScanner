@@ -38,9 +38,9 @@
 // Define the URL starting pattern. URL can be ended by an empty character or at the end of a group.
 // A group is parsed dynamically by looking at the start and the end of parentheses.
 #define START_PTNS				{ {'h', 't', 't', 'p', ':', '/', '/'}, {'h', 't', 't', 'p', 's', ':', '/', '/'} }
+#define START_PTNS_COUNT		2
 #define START_PTNS_MAX_LENGTH	8
 #define START_PTNS_MIN_LENGTH	7
-#define START_PTNS_COUNT		2
 
 // List of empty characters
 #define EMPTY_CHARS			{0x0009, 0x000a, 0x000b, 0x000c, 0x000d, 0x0020, 0x0085, 0x00a0, 0x1680, 0x180e,\
@@ -50,6 +50,14 @@
 
 
 @implementation NSString (URLScanning)
+
+unichar unicharToLower(unichar input) {
+	if (input >= 'A' && input <= 'Z') {
+		return input + 0x20;
+	} else {
+		return input;
+	}
+}
 
 // Fetch the matching parenthesis character
 unichar getMatchingClosingCharacter(unichar startChar) {
@@ -177,9 +185,9 @@ NSRange getRangeOfURL(const unichar *charArray, NSUInteger startPos, NSUInteger 
 			BOOL success = YES;
 			length = 0;
 			for (NSUInteger k = 0; k < START_PTNS_MAX_LENGTH; k++) {
-				unichar currentPatternChar = currentStr[k];
+				unichar currentPatternChar = unicharToLower(currentStr[k]);
 				if (currentPatternChar != 0x00) {
-					if (currentPatternChar != charArray[i + k]) {
+					if (currentPatternChar != unicharToLower(charArray[i + k])) {
 						success = NO;
 						break;
 					}
@@ -450,6 +458,22 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 
 - (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs {
 	return [self rangesOfURL:numberOfURLs startFrom:0];
+}
+
+- (NSArray *)getURLStrings {
+	NSUInteger numberOfURLs;
+	NSRange *allRanges = [self rangesOfURL:&numberOfURLs];
+	
+	if (numberOfURLs == 0) {
+		return nil;
+	}
+	
+	NSMutableArray *urls = [NSMutableArray arrayWithCapacity:numberOfURLs];
+	for (NSUInteger i = 0; i < numberOfURLs; i++) {
+		[urls addObject:[self substringWithRange:allRanges[i]]];
+	}
+	
+	return urls;
 }
 
 - (BOOL)containsURL {
