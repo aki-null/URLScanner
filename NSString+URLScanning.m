@@ -261,9 +261,13 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 }
 
 - (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs startFrom:(NSUInteger)startIndex {
-	const NSUInteger length = [self length] - startIndex;
-	
 	*numberOfURLs = 0;
+	
+	if (startIndex >= [self length]) {
+		return NULL;
+	}
+	
+	const NSUInteger length = [self length] - startIndex;
 	
 	if (length < START_PTNS_MIN_LENGTH) {
 		return NULL;
