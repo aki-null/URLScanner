@@ -304,10 +304,8 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 			// Find the end parenthesis character
 			for (NSUInteger j = i + 1; j < length; j++) {
 				unichar currentSecondChar = charArray[j];
-				if (currentSecondChar == currentChar) {
-					// Found the duplicate parenthesis
-					nestCount++;
-				} else if (currentSecondChar == matchingPar) {
+				
+				if (currentSecondChar == matchingPar) {
 					if (nestCount == 0) {
 						if (i + 1 <= j - 1 && substringContainsURL(charArray, i + 1, j - 1)) {
 							// Only record as group if the group contains URL
@@ -320,6 +318,9 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 						// Found the end of a group
 						nestCount--;
 					}
+				} else if (currentSecondChar == currentChar) {
+					// Found the duplicate parenthesis
+					nestCount++;
 				}
 			}
 		}

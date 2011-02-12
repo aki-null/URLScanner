@@ -42,6 +42,7 @@ int main (int argc, const char * argv[]) {
 	testString(@"()()()()()http://");
 	testString(@"HtTPs://test.com");
 	testString(@"hTTP://test.com");
+	testString(@"test\"test http://www.test.com\"test");
     
     [pool drain];
     return 0;
