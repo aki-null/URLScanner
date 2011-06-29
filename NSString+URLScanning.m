@@ -492,7 +492,11 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
     return result;
 }
 
+@end
+
 #ifdef __BLOCKS__
+
+@implementation NSString (URLScanningBlockAdditions)
 
 - (void)enumerateURLsUsingBlock:(void (^)(NSString *url, NSRange range, BOOL *stop))block {
     NSUInteger numberOfURLs;
@@ -525,6 +529,6 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
     }
 }
 
-#endif
-
 @end
+
+#endif
