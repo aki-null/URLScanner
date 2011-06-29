@@ -19,6 +19,18 @@ void testString(NSString *testTarget) {
 	}
 	
 	NSLog(@"------------------------------");
+    
+    [testTarget enumerateURLsUsingBlock:^(NSString *url, NSRange range, BOOL *stop) {
+        NSLog(@"'%@' at %@", url, NSStringFromRange(range));
+    }];
+    
+    NSLog(@"------------------------------");
+    
+    [testTarget enumerateURLRangesUsingBlock:^(NSRange range, BOOL *stop) {
+        NSLog(@"'%@' at %@", [testTarget substringWithRange:range], NSStringFromRange(range));
+    }];
+    
+    NSLog(@"------------------------------");
 }
 
 int main (int argc, const char * argv[]) {

@@ -37,11 +37,18 @@
 
 
 @interface NSString (URLScanning)
-
 - (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs;
 - (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs startFrom:(NSUInteger)startIndex;
 - (NSArray *)getURLStrings;
-
 - (BOOL)containsURL;
-
 @end
+
+#ifdef __BLOCKS__
+
+@interface NSString (URLScanningBlockAdditions)
+- (void)enumerateURLsUsingBlock:(void (^)(NSString *url, NSRange range, BOOL *stop))block;
+// This is more efficient than enumerateURLsUsingBlock: if you do not need the actual URL string
+- (void)enumerateURLRangesUsingBlock:(void (^)(NSRange range, BOOL *stop))block;
+@end
+
+#endif

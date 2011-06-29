@@ -492,4 +492,39 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 	return result;
 }
 
+#ifdef __BLOCKS__
+
+- (void)enumerateURLsUsingBlock:(void (^)(NSString *url, NSRange range, BOOL *stop))block {
+    NSUInteger numberOfURLs;
+	NSRange *allRanges = [self rangesOfURL:&numberOfURLs];
+	
+	if (numberOfURLs != 0) {
+		for (NSUInteger i = 0; i < numberOfURLs; i++) {
+            NSString *currentURL = [self substringWithRange:allRanges[i]];
+            BOOL shouldStop = NO;
+            block(currentURL, allRanges[i], &shouldStop);
+            if (shouldStop) {
+                break;
+            }
+        }
+	}
+}
+
+- (void)enumerateURLRangesUsingBlock:(void (^)(NSRange range, BOOL *stop))block {
+    NSUInteger numberOfURLs;
+	NSRange *allRanges = [self rangesOfURL:&numberOfURLs];
+	
+	if (numberOfURLs != 0) {
+		for (NSUInteger i = 0; i < numberOfURLs; i++) {
+            BOOL shouldStop = NO;
+            block(allRanges[i], &shouldStop);
+            if (shouldStop) {
+                break;
+            }
+        }
+	}
+}
+
+#endif
+
 @end
