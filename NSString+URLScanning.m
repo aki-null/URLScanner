@@ -165,7 +165,7 @@ unichar getMatchingClosingCharacter(unichar startChar) {
 }
 
 // Get the range of first URL encountered in the specified range
-NSRange getRangeOfURL(const unichar *charArray, NSUInteger startPos, NSUInteger endPos) {
+NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUInteger endPos) {
     // URL start patterns
     const unichar startStrs[START_PTNS_COUNT][START_PTNS_MAX_LENGTH] = START_PTNS;
     // Array of empty characters that are used to determine the end of URL
@@ -187,7 +187,7 @@ NSRange getRangeOfURL(const unichar *charArray, NSUInteger startPos, NSUInteger 
             for (NSUInteger k = 0; k < START_PTNS_MAX_LENGTH; k++) {
                 unichar currentPatternChar = unicharToLower(currentStr[k]);
                 if (currentPatternChar != 0x00) {
-                    if (currentPatternChar != unicharToLower(charArray[i + k])) {
+                    if (currentPatternChar != unicharToLower(CFStringGetCharacterFromInlineBuffer(charBuff, i + k))) {
                         success = NO;
                         break;
                     }
@@ -203,7 +203,7 @@ NSRange getRangeOfURL(const unichar *charArray, NSUInteger startPos, NSUInteger 
                 if (location + length - 1 != endPos) {
                     // Find empty character
                     for (NSUInteger k = location + length; k < endPos + 1; k++) {
-                        unichar currentEndChar = charArray[k];
+                        unichar currentEndChar = CFStringGetCharacterFromInlineBuffer(charBuff, k);
                         BOOL foundEmptyChar = NO;
                         // Iterate through all empty characters
                         for (NSUInteger l = 0; l < EMPTY_CHARS_COUNT; l++) {
@@ -235,7 +235,7 @@ NSRange getRangeOfURL(const unichar *charArray, NSUInteger startPos, NSUInteger 
     return NSMakeRange(location, length);
 }
 
-BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInteger endPos) {
+BOOL substringContainsURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUInteger endPos) {
     if (endPos - startPos + 1 < START_PTNS_MIN_LENGTH) {
         return NO;
     }
@@ -253,7 +253,7 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
             for (NSUInteger k = 0; k < START_PTNS_MAX_LENGTH; k++) {
                 unichar currentPatternChar = unicharToLower(currentStr[k]);
                 if (currentPatternChar != 0x00 &&
-                    currentPatternChar != unicharToLower(charArray[i + k])) {
+                    currentPatternChar != unicharToLower(CFStringGetCharacterFromInlineBuffer(charBuff, i + k))) {
                     success = NO;
                     break;
                 }
@@ -269,21 +269,22 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
 }
 
 - (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs startFrom:(NSUInteger)startIndex {
+    NSUInteger totalLength = [self length];
     *numberOfURLs = 0;
     
-    if (startIndex >= [self length]) {
+    if (startIndex >= totalLength) {
         return NULL;
     }
     
-    const NSUInteger length = [self length] - startIndex;
+    const NSUInteger length = totalLength - startIndex;
     
     if (length < START_PTNS_MIN_LENGTH) {
         return NULL;
     }
     
-    // Copy the content of NSString into unichar array
-    unichar *charArray = malloc(sizeof(unichar) * length);
-    [self getCharacters:charArray range:NSMakeRange(startIndex, length)];
+    // Obtain string buffer
+    CFStringInlineBuffer charBuff;
+    CFStringInitInlineBuffer((CFStringRef)self, &charBuff, CFRangeMake(0, totalLength));
     
     // Find all groups
     
@@ -293,7 +294,7 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
     NSUInteger *groups = calloc(length / START_PTNS_MIN_LENGTH * 3, sizeof(NSUInteger));
     NSUInteger currentGroupIndex = 0;
     for (NSUInteger i = 0; i < length; i++) {
-        unichar currentChar = charArray[i];
+        unichar currentChar = CFStringGetCharacterFromInlineBuffer(&charBuff, i);
         unichar matchingPar = getMatchingClosingCharacter(currentChar);
         
         // Find the end of group
@@ -303,11 +304,11 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
             
             // Find the end parenthesis character
             for (NSUInteger j = i + 1; j < length; j++) {
-                unichar currentSecondChar = charArray[j];
+                unichar currentSecondChar = CFStringGetCharacterFromInlineBuffer(&charBuff, j);
                 
                 if (currentSecondChar == matchingPar) {
                     if (nestCount == 0) {
-                        if (i + 1 <= j - 1 && substringContainsURL(charArray, i + 1, j - 1)) {
+                        if (i + 1 <= j - 1 && substringContainsURL(&charBuff, i + 1, j - 1)) {
                             // Only record as group if the group contains URL
                             groups[currentGroupIndex * 3] = i + 1;            // Location
                             groups[currentGroupIndex * 3 + 1] = j - i  - 1;    // Length
@@ -412,7 +413,6 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
     
     if (currentGroupIndex == 0) {
         free(finalGroups);
-        free(charArray);
         return NULL;
     }
     
@@ -426,7 +426,7 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
         NSUInteger tempStartPos = startPos;
         BOOL scanningFinished = NO;
         while (!scanningFinished) {
-            NSRange urlRange = getRangeOfURL(charArray, tempStartPos, endPos);
+            NSRange urlRange = getRangeOfURL(&charBuff, tempStartPos, endPos);
             if (urlRange.location == NSNotFound) {
                 scanningFinished = YES;
             } else {
@@ -447,7 +447,6 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
     }
     
     free(finalGroups);
-    free(charArray);
     
     // Create autoreleased mutable byte array
     NSRange *result = [[NSMutableData dataWithLength:*numberOfURLs * sizeof(NSRange)] mutableBytes];
@@ -484,11 +483,11 @@ BOOL substringContainsURL(const unichar *charArray, NSUInteger startPos, NSUInte
         return NO;
     }
     
-    // Copy the content of NSString into unichar array
-    unichar *charArray = malloc(sizeof(unichar) * length);
-    [self getCharacters:charArray range:NSMakeRange(0, length)];
-    BOOL result = substringContainsURL(charArray, 0, length - 1);
-    free(charArray);
+    // Obtain string buffer
+    CFStringInlineBuffer charBuff;
+    CFStringInitInlineBuffer((CFStringRef)self, &charBuff, CFRangeMake(0, length));
+    
+    BOOL result = substringContainsURL(&charBuff, 0, length - 1);
     return result;
 }
 
