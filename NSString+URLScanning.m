@@ -93,7 +93,7 @@ unichar getMatchingClosingCharacter(unichar startChar) {
             return 0x0027;
             break;
         case 0xFF5F:
-            return 0xFF5F;
+            return 0xFF60;
             break;
         case 0x2E28:
             return 0x2E29;
