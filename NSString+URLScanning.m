@@ -284,7 +284,7 @@ BOOL substringContainsURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, N
     
     // Obtain string buffer
     CFStringInlineBuffer charBuff;
-    CFStringInitInlineBuffer((CFStringRef)self, &charBuff, CFRangeMake(0, totalLength));
+    CFStringInitInlineBuffer((CFStringRef)self, &charBuff, CFRangeMake(startIndex, totalLength - startIndex));
     
     // Find all groups
     
