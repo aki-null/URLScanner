@@ -37,19 +37,41 @@
 
 // Define the URL starting pattern. URL can be ended by an empty character or at the end of a group.
 // A group is parsed dynamically by looking at the start and the end of parentheses.
-#define START_PTNS              { {'h', 't', 't', 'p', ':', '/', '/'}, {'h', 't', 't', 'p', 's', ':', '/', '/'} }
-#define START_PTNS_COUNT        2
+#define START_PTNS              { "http://", "https://" }
 #define START_PTNS_MAX_LENGTH   8
 #define START_PTNS_MIN_LENGTH   7
 
-// List of empty characters
-#define EMPTY_CHARS            {0x0009, 0x000a, 0x000b, 0x000c, 0x000d, 0x0020, 0x0085, 0x00a0, 0x1680, 0x180e,\
-                                0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009,\
-                                0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000}
-#define EMPTY_CHARS_COUNT      26
+// List of domains that can only have ASCII characters
+#define EXC_DOMAINS_MAX_LENGTH  64
+#define EXC_DOMAINS             { "tinyurl.com", "is.gd", "snipurl.com", "snurl.com", "tiny.cc", "bit.ly", "twurl.nl",\
+                                  "cli.gs", "tr.im", "kl.am", "htn.to", "tot.to", "lnk.ms", "ur.ly", "t.co", "budurl.com",\
+                                  "ff.im", "twitthis.com", "digg.com", "u.nu", "qurl.com", "bctiny.com", "j.mp", "ow.ly",\
+                                  "ht.ly", "post.ly", "ping.fm", "fb.me", "on.fb.me", "su.pr", "p.tl", "icio.us", "dlvr.it",\
+                                  "ux.nu", "tiny.ly", "me.lt" }
 
+// List of empty characters
+#define EMPTY_CHARS            { 0x0009, 0x000a, 0x000b, 0x000c, 0x000d, 0x0020, 0x0085, 0x00a0, 0x1680, 0x180e,\
+                                 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009,\
+                                 0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000 }
 
 @implementation NSString (URLScanning)
+
+static const char startPatterns[][START_PTNS_MAX_LENGTH] = START_PTNS;
+static NSUInteger startPatternCount = 0;
+
+// Array of empty characters that are used to determine the end of URL
+static const unichar emptyChars[] = EMPTY_CHARS;
+static NSUInteger emptyCharsCount = 0;
+
+// Domain exceptions
+static const char domainExceptions[][EXC_DOMAINS_MAX_LENGTH] = EXC_DOMAINS;
+static NSUInteger domainCount = 0;
+
++ (void)load {
+    startPatternCount = sizeof(startPatterns) / (sizeof(char) * START_PTNS_MAX_LENGTH);
+    domainCount = sizeof(domainExceptions) / (sizeof(char) * EXC_DOMAINS_MAX_LENGTH);
+    emptyCharsCount = sizeof(emptyChars) / sizeof(unichar);
+}
 
 unichar unicharToLower(unichar input) {
     if (input >= 'A' && input <= 'Z') {
@@ -166,20 +188,15 @@ unichar getMatchingClosingCharacter(unichar startChar) {
 
 // Get the range of first URL encountered in the specified range
 NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUInteger endPos) {
-    // URL start patterns
-    const unichar startStrs[START_PTNS_COUNT][START_PTNS_MAX_LENGTH] = START_PTNS;
-    // Array of empty characters that are used to determine the end of URL
-    const unichar emptyChars[] = EMPTY_CHARS;
-    
     BOOL foundURL = NO;
     NSUInteger location = NSNotFound;
     NSUInteger length = 0;
     
     for (NSUInteger i = startPos; i < endPos + 1; i++) {
         // Iterate through all starting patterns
-        for (NSUInteger j = 0; j < START_PTNS_COUNT; j++) {
+        for (NSUInteger j = 0; j < startPatternCount; j++) {
             // Get the current starting pattern
-            const unichar *currentStr = startStrs[j];
+            const char *currentStr = startPatterns[j];
             
             // Check if the string matches the current pattern
             BOOL success = YES;
@@ -199,6 +216,39 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                 foundURL = YES;
                 location = i;
                 
+                // Check the ASCII domain exception list
+                BOOL asciiOnly = NO;
+                for (NSUInteger k = 0; k < domainCount; k++) {
+                    const char *currentDomain = domainExceptions[k];
+                    for (NSUInteger l = 0; l < EXC_DOMAINS_MAX_LENGTH; l++) {
+                        char currentChar = currentDomain[l];
+                        if (currentChar == 0x00) {
+                            // The character after the exception domain name has to be either an empty
+                            // character, slash '/' or non-ASCII character.
+                            unichar targetChar = CFStringGetCharacterFromInlineBuffer(charBuff, location + length + l);
+                            if (targetChar == '/' || targetChar > 0xFF) {
+                                asciiOnly = YES;
+                            } else {
+                                for (NSUInteger m = 0; m < emptyCharsCount; m++) {
+                                    if (targetChar == emptyChars[m]) {
+                                        asciiOnly = YES;
+                                        break;
+                                    }
+                                }
+                            }
+                            break;
+                        } else {
+                            unichar targetChar = CFStringGetCharacterFromInlineBuffer(charBuff, location + length + l);
+                            if (unicharToLower(targetChar) != unicharToLower(currentChar)) {
+                                break;
+                            }
+                        }
+                    }
+                    if (asciiOnly) {
+                        break;
+                    }
+                }
+                
                 // Do not find the ending character if the URL contains only the starting pattern
                 if (location + length - 1 != endPos) {
                     // Find empty character
@@ -206,8 +256,9 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                         unichar currentEndChar = CFStringGetCharacterFromInlineBuffer(charBuff, k);
                         BOOL foundEmptyChar = NO;
                         // Iterate through all empty characters
-                        for (NSUInteger l = 0; l < EMPTY_CHARS_COUNT; l++) {
-                            if (currentEndChar == emptyChars[l]) {
+                        for (NSUInteger l = 0; l < emptyCharsCount; l++) {
+                            if (currentEndChar == emptyChars[l] ||
+                                (asciiOnly && currentEndChar > 0xFF)) {
                                 foundEmptyChar = YES;
                                 break;
                             }
@@ -240,13 +291,11 @@ BOOL substringContainsURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, N
         return NO;
     }
     
-    const unichar startStrs[START_PTNS_COUNT][START_PTNS_MAX_LENGTH] = START_PTNS;
-    
     for (NSUInteger i = startPos; i < endPos + 1; i++) {
         // Iterate through all starting patterns
-        for (NSUInteger j = 0; j < START_PTNS_COUNT; j++) {
+        for (NSUInteger j = 0; j < startPatternCount; j++) {
             // Get the current starting pattern
-            const unichar *currentStr = startStrs[j];
+            const char *currentStr = startPatterns[j];
             
             // Check if the string matches the current pattern
             BOOL success = YES;
@@ -268,23 +317,18 @@ BOOL substringContainsURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, N
     return NO;
 }
 
-- (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs startFrom:(NSUInteger)startIndex {
+NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInteger startIndex, CFStringInlineBuffer charBuff) {
     NSUInteger totalLength = [self length];
-    *numberOfURLs = 0;
     
     if (startIndex >= totalLength) {
-        return NULL;
+        return 0;
     }
     
     const NSUInteger length = totalLength - startIndex;
     
     if (length < START_PTNS_MIN_LENGTH) {
-        return NULL;
+        return 0;
     }
-    
-    // Obtain string buffer
-    CFStringInlineBuffer charBuff;
-    CFStringInitInlineBuffer((CFStringRef)self, &charBuff, CFRangeMake(startIndex, totalLength - startIndex));
     
     // Find all groups
     
@@ -382,9 +426,6 @@ BOOL substringContainsURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, N
     
     // Scan the group weight buffer and create final groups
     
-    // Byte 1: Location
-    // Byte 2: Length
-    NSUInteger *finalGroups = calloc(length * 2, sizeof(NSUInteger));
     currentGroupIndex = 0;
     
     {
@@ -411,17 +452,26 @@ BOOL substringContainsURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, N
     }
     free(groupBuffer);
     
-    if (currentGroupIndex == 0) {
-        free(finalGroups);
+    return currentGroupIndex;
+}
+
+- (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs startFrom:(NSUInteger)startIndex
+         withGroupBuffer:(NSUInteger *)groups groupCount:(NSUInteger)groupIndex andStringBuffer:(CFStringInlineBuffer) charBuff {
+    NSUInteger totalLength = [self length];
+    
+    if (startIndex >= totalLength) {
         return NULL;
     }
     
+    const NSUInteger length = totalLength - startIndex;
+    *numberOfURLs = 0;
+        
     NSRange *allMatches = malloc(sizeof(NSRange) * (length / START_PTNS_MIN_LENGTH));
     
     // Finally scan for URLs in groups
-    for (NSUInteger i = 0; i < currentGroupIndex; i++) {
-        NSUInteger startPos = finalGroups[i * 2];
-        NSUInteger endPos = startPos + finalGroups[i * 2 + 1] - 1;
+    for (NSUInteger i = 0; i < groupIndex; i++) {
+        NSUInteger startPos = groups[i * 2];
+        NSUInteger endPos = startPos + groups[i * 2 + 1] - 1;
         
         NSUInteger tempStartPos = startPos;
         BOOL scanningFinished = NO;
@@ -446,13 +496,36 @@ BOOL substringContainsURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, N
         }
     }
     
-    free(finalGroups);
-    
     // Create autoreleased mutable byte array
     NSRange *result = [[NSMutableData dataWithLength:*numberOfURLs * sizeof(NSRange)] mutableBytes];
     memcpy(result, allMatches, sizeof(NSRange) * *numberOfURLs);
     free(allMatches);
     
+    return result;
+}
+
+- (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs startFrom:(NSUInteger)startIndex {
+    *numberOfURLs = 0;
+    NSUInteger totalLength = [self length];
+    
+    // Obtain string buffer
+    CFStringInlineBuffer charBuff;
+    CFStringInitInlineBuffer((CFStringRef)self, &charBuff, CFRangeMake(startIndex, totalLength - startIndex));
+    
+    const NSUInteger length = totalLength - startIndex;
+    
+    // Byte 1: Location
+    // Byte 2: Length
+    NSUInteger *finalGroups = calloc(length * 2, sizeof(NSUInteger));
+    NSUInteger currentGroupIndex = getGroupRangesForURL(self, finalGroups, startIndex, charBuff);
+    if (currentGroupIndex == 0) {
+        free(finalGroups);
+        return NULL;
+    }
+    
+    NSRange *result = [self rangesOfURL:numberOfURLs startFrom:startIndex withGroupBuffer:finalGroups
+                             groupCount:currentGroupIndex andStringBuffer:charBuff];
+    free(finalGroups);
     return result;
 }
 
@@ -489,6 +562,89 @@ BOOL substringContainsURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, N
     
     BOOL result = substringContainsURL(&charBuff, 0, length - 1);
     return result;
+}
+
+- (NSString *)replaceURL:(NSString *)sourceUrl withURL:(NSString *)targetUrl {
+    if (!sourceUrl || !targetUrl || [sourceUrl isEqualToString:targetUrl]) {
+        return self;
+    }
+    
+    NSUInteger scanIndex = 0;
+    NSMutableString *result = [self mutableCopy];
+    NSInteger lengthDiff = [targetUrl length] - [sourceUrl length];
+    
+    for(;;) {
+        NSUInteger length = [result length];
+        
+        // Obtain string buffer
+        CFStringInlineBuffer charBuff;
+        CFStringInitInlineBuffer((CFStringRef)result, &charBuff, CFRangeMake(0, length));
+        
+        // Obtain group ranges
+        // Byte 1: Location
+        // Byte 2: Length
+        NSUInteger *finalGroups = calloc(length * 2, sizeof(NSUInteger));
+        NSUInteger groupCount = getGroupRangesForURL(result, finalGroups, 0, charBuff);
+        if (groupCount == 0) {
+            free(finalGroups);
+            return self;
+        }
+        
+        NSRange strRange = [result rangeOfString:sourceUrl options:0
+                                           range:NSMakeRange(scanIndex, length - scanIndex)];
+        if (strRange.location == NSNotFound) {
+            break;
+        } else {
+            scanIndex = NSMaxRange(strRange);
+        }
+        
+        // Is the last source URL character position at the end of a group?
+        // YES: no trailing space required
+        // NO:
+        //      Is the next character after the source URL an empty character?
+        //      YES: no trailing space required
+        //      NO: add a trailing space
+        for (NSUInteger i = 0; i < groupCount; i++) {
+            if (finalGroups[i * 2] <= strRange.location &&
+                finalGroups[i * 2] + finalGroups[i * 2 + 1] >= strRange.location + strRange.length) {
+                if (finalGroups[i * 2] + finalGroups[i * 2 + 1] == strRange.location + strRange.length) {
+                    [result replaceCharactersInRange:strRange withString:targetUrl];
+                    scanIndex += lengthDiff;
+                } else {
+                    unichar nextStr = CFStringGetCharacterFromInlineBuffer(&charBuff, NSMaxRange(strRange));
+                    if (nextStr == 0x00) {
+                        [result replaceCharactersInRange:strRange withString:targetUrl];
+                        scanIndex += lengthDiff;
+                    } else {
+                        BOOL isEmptyChar = NO;
+                        for (NSUInteger j = 0; j < emptyCharsCount; j++) {
+                            if (nextStr == emptyChars[j]) {
+                                isEmptyChar = YES;
+                                break;
+                            }
+                        }
+                        
+                        if (isEmptyChar) {
+                            [result replaceCharactersInRange:strRange withString:targetUrl];
+                            scanIndex += lengthDiff;
+                        } else {
+                            [result replaceCharactersInRange:strRange withString:[targetUrl stringByAppendingString:@" "]];
+                            scanIndex += lengthDiff + 1;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+        
+        free(finalGroups);
+        
+        if (scanIndex >= [result length]) {
+            break;
+        }
+    }
+    
+    return [[result copy] autorelease];
 }
 
 @end
