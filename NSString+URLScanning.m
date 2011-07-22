@@ -593,6 +593,7 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
         NSRange strRange = [result rangeOfString:sourceUrl options:0
                                            range:NSMakeRange(scanIndex, length - scanIndex)];
         if (strRange.location == NSNotFound) {
+            free(finalGroups);
             break;
         } else {
             scanIndex = NSMaxRange(strRange);
