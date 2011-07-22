@@ -456,7 +456,7 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
 }
 
 - (NSRange *)rangesOfURL:(NSUInteger *)numberOfURLs startFrom:(NSUInteger)startIndex
-         withGroupBuffer:(NSUInteger *)groups groupCount:(NSUInteger)groupIndex andStringBuffer:(CFStringInlineBuffer) charBuff {
+         withGroupBuffer:(NSUInteger *)groups groupCount:(NSUInteger)groupCount andStringBuffer:(CFStringInlineBuffer) charBuff {
     NSUInteger totalLength = [self length];
     
     if (startIndex >= totalLength) {
@@ -469,7 +469,7 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
     NSRange *allMatches = malloc(sizeof(NSRange) * (length / START_PTNS_MIN_LENGTH));
     
     // Finally scan for URLs in groups
-    for (NSUInteger i = 0; i < groupIndex; i++) {
+    for (NSUInteger i = 0; i < groupCount; i++) {
         NSUInteger startPos = groups[i * 2];
         NSUInteger endPos = startPos + groups[i * 2 + 1] - 1;
         
@@ -517,14 +517,14 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
     // Byte 1: Location
     // Byte 2: Length
     NSUInteger *finalGroups = calloc(length * 2, sizeof(NSUInteger));
-    NSUInteger currentGroupIndex = getGroupRangesForURL(self, finalGroups, startIndex, charBuff);
-    if (currentGroupIndex == 0) {
+    NSUInteger groupCount = getGroupRangesForURL(self, finalGroups, startIndex, charBuff);
+    if (groupCount == 0) {
         free(finalGroups);
         return NULL;
     }
     
     NSRange *result = [self rangesOfURL:numberOfURLs startFrom:startIndex withGroupBuffer:finalGroups
-                             groupCount:currentGroupIndex andStringBuffer:charBuff];
+                             groupCount:groupCount andStringBuffer:charBuff];
     free(finalGroups);
     return result;
 }
@@ -564,7 +564,7 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
     return result;
 }
 
-- (NSString *)replaceURL:(NSString *)sourceUrl withURL:(NSString *)targetUrl {
+- (NSString *)stringByReplacingURL:(NSString *)sourceUrl withURL:(NSString *)targetUrl {
     if (!sourceUrl || !targetUrl || [sourceUrl isEqualToString:targetUrl]) {
         return self;
     }
@@ -590,7 +590,8 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
             return self;
         }
         
-        NSRange strRange = [result rangeOfString:sourceUrl options:0
+        NSRange strRange = [result rangeOfString:sourceUrl
+                                         options:0
                                            range:NSMakeRange(scanIndex, length - scanIndex)];
         if (strRange.location == NSNotFound) {
             free(finalGroups);
@@ -599,41 +600,35 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
             scanIndex = NSMaxRange(strRange);
         }
         
-        // Is the last source URL character position at the end of a group?
-        // YES: no trailing space required
-        // NO:
-        //      Is the next character after the source URL an empty character?
-        //      YES: no trailing space required
-        //      NO: add a trailing space
         for (NSUInteger i = 0; i < groupCount; i++) {
+            // Check if the current group contains the source string range
             if (finalGroups[i * 2] <= strRange.location &&
                 finalGroups[i * 2] + finalGroups[i * 2 + 1] >= strRange.location + strRange.length) {
-                if (finalGroups[i * 2] + finalGroups[i * 2 + 1] == strRange.location + strRange.length) {
-                    [result replaceCharactersInRange:strRange withString:targetUrl];
-                    scanIndex += lengthDiff;
-                } else {
+                BOOL appendSpace = NO;
+                // The source string has to not be positioned at the end of a group if extra space is required
+                if (finalGroups[i * 2] + finalGroups[i * 2 + 1] != strRange.location + strRange.length) {
                     unichar nextStr = CFStringGetCharacterFromInlineBuffer(&charBuff, NSMaxRange(strRange));
-                    if (nextStr == 0x00) {
-                        [result replaceCharactersInRange:strRange withString:targetUrl];
-                        scanIndex += lengthDiff;
-                    } else {
-                        BOOL isEmptyChar = NO;
+                    if (nextStr != 0x00) {
+                        // Assume that the next character is not an empty character
+                        appendSpace = YES;
                         for (NSUInteger j = 0; j < emptyCharsCount; j++) {
                             if (nextStr == emptyChars[j]) {
-                                isEmptyChar = YES;
+                                // Found empty character
+                                appendSpace = NO;
                                 break;
                             }
                         }
-                        
-                        if (isEmptyChar) {
-                            [result replaceCharactersInRange:strRange withString:targetUrl];
-                            scanIndex += lengthDiff;
-                        } else {
-                            [result replaceCharactersInRange:strRange withString:[targetUrl stringByAppendingString:@" "]];
-                            scanIndex += lengthDiff + 1;
-                        }
                     }
                 }
+                
+                if (appendSpace) {
+                    [result replaceCharactersInRange:strRange withString:[targetUrl stringByAppendingString:@" "]];
+                    scanIndex += lengthDiff + 1;
+                } else {
+                    [result replaceCharactersInRange:strRange withString:targetUrl];
+                    scanIndex += lengthDiff;
+                }
+                
                 break;
             }
         }

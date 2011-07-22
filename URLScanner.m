@@ -36,7 +36,7 @@ void testString(NSString *testTarget) {
 int main (int argc, const char * argv[]) {
     NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
     
-    NSLog(@"%@", [@"http://j.mp/b9PWcWテスト[http://j.mp/b9PWcW]http://j.mp/b9PWcWテスト" replaceURL:@"http://j.mp/b9PWcW" withURL:@"http://groups.google.com/group/twitter-api-announce"]);
+    NSLog(@"%@", [@"http://j.mp/b9PWcWテスト[http://j.mp/b9PWcW]http://j.mp/b9PWcWテスト" stringByReplacingURL:@"http://j.mp/b9PWcW" withURL:@"http://groups.google.com/group/twitter-api-announce"]);
     
     testString(@"http://j.mp/b9PWcWテスト[http://j.mp/b9PWcW]http://j.mp/b9PWcWテストhttp://ja.wikipedia.org/wiki/バール_(単位){http://ja.wikipedia.org/wiki/バール_(単位)}");
     testString(@"(http://en.wikipedia.org/wiki/Perl_(disambiguation))");
