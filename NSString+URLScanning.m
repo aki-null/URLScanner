@@ -644,7 +644,10 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
         }
     }
     
-    return [[result copy] autorelease];
+    NSString *finalResult = [[result copy] autorelease];
+    [result release];
+    
+    return finalResult;
 }
 
 @end
