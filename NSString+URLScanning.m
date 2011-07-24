@@ -249,8 +249,63 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                     }
                 }
                 
+                // Check if the URL contains percent encoded string. If it does, it cannot contain
+                // non-ASCII characters after the domain name.
+                if (!asciiOnly) {
+                    NSUInteger percentEncodedStringState = 0;
+                    for (NSUInteger k = location + length; k < endPos + 1; k++) {
+                        unichar currentChar = CFStringGetCharacterFromInlineBuffer(charBuff, k);
+                        
+                        // Stop scanning at an empty character
+                        BOOL foundEmptyChar = NO;
+                        // Iterate through all empty characters
+                        for (NSUInteger l = 0; l < emptyCharsCount; l++) {
+                            if (currentChar == emptyChars[l]) {
+                                foundEmptyChar = YES;
+                                break;
+                            }
+                        }
+                        
+                        if (foundEmptyChar) {
+                            break;
+                        }
+                        
+                        switch (percentEncodedStringState) {
+                            case 0:
+                                if (currentChar == '%') {
+                                    percentEncodedStringState++;
+                                }
+                                break;
+                            case 1:
+                                if ((currentChar >= '0' && currentChar <= '9') ||
+                                    (currentChar >= 'A' && currentChar <= 'Z') ||
+                                    (currentChar >= 'a' && currentChar <= 'z')) {
+                                    percentEncodedStringState++;
+                                } else {
+                                    percentEncodedStringState = 0;
+                                }
+                                break;
+                            case 2:
+                                if ((currentChar >= '0' && currentChar <= '9') ||
+                                    (currentChar >= 'A' && currentChar <= 'Z') ||
+                                    (currentChar >= 'a' && currentChar <= 'z')) {
+                                    asciiOnly = YES;
+                                } else {
+                                    percentEncodedStringState = 0;
+                                }
+                                break;
+                            default:
+                                break;
+                        }
+                        if (asciiOnly) {
+                            break;
+                        }
+                    }
+                }
+                
                 // Do not find the ending character if the URL contains only the starting pattern
                 if (location + length - 1 != endPos) {
+                    BOOL foundEndOfDomain = NO;
                     // Find empty character
                     for (NSUInteger k = location + length; k < endPos + 1; k++) {
                         unichar currentEndChar = CFStringGetCharacterFromInlineBuffer(charBuff, k);
@@ -258,7 +313,7 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                         // Iterate through all empty characters
                         for (NSUInteger l = 0; l < emptyCharsCount; l++) {
                             if (currentEndChar == emptyChars[l] ||
-                                (asciiOnly && currentEndChar > 0xFF)) {
+                                (foundEndOfDomain && asciiOnly && currentEndChar > 0xFF)) {
                                 foundEmptyChar = YES;
                                 break;
                             }
@@ -269,6 +324,10 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                             break;
                         } else {
                             length++;
+                        }
+                        
+                        if (currentEndChar == '/') {
+                            foundEndOfDomain = YES;
                         }
                     }
                 }
