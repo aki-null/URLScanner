@@ -54,6 +54,8 @@
                                  0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009,\
                                  0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000 }
 
+#define isHexCharacter(c) (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+
 @implementation NSString (URLScanning)
 
 static const char startPatterns[][START_PTNS_MAX_LENGTH] = START_PTNS;
@@ -222,11 +224,11 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                     const char *currentDomain = domainExceptions[k];
                     for (NSUInteger l = 0; l < EXC_DOMAINS_MAX_LENGTH; l++) {
                         char currentChar = currentDomain[l];
+                        unichar targetChar = CFStringGetCharacterFromInlineBuffer(charBuff, location + length + l);
                         if (currentChar == 0x00) {
                             // The character after the exception domain name has to be either an empty
                             // character, slash '/' or non-ASCII character.
-                            unichar targetChar = CFStringGetCharacterFromInlineBuffer(charBuff, location + length + l);
-                            if (targetChar == '/' || targetChar > 0xFF) {
+                            if (targetChar == '/' || targetChar > 0x80) {
                                 asciiOnly = YES;
                             } else {
                                 for (NSUInteger m = 0; m < emptyCharsCount; m++) {
@@ -237,11 +239,8 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                                 }
                             }
                             break;
-                        } else {
-                            unichar targetChar = CFStringGetCharacterFromInlineBuffer(charBuff, location + length + l);
-                            if (unicharToLower(targetChar) != unicharToLower(currentChar)) {
-                                break;
-                            }
+                        } else if (unicharToLower(targetChar) != unicharToLower(currentChar)) {
+                            break;
                         }
                     }
                     if (asciiOnly) {
@@ -265,7 +264,6 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                                 break;
                             }
                         }
-                        
                         if (foundEmptyChar) {
                             break;
                         }
@@ -277,18 +275,14 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                                 }
                                 break;
                             case 1:
-                                if ((currentChar >= '0' && currentChar <= '9') ||
-                                    (currentChar >= 'A' && currentChar <= 'Z') ||
-                                    (currentChar >= 'a' && currentChar <= 'z')) {
+                                if (isHexCharacter(currentChar)) {
                                     percentEncodedStringState++;
                                 } else {
                                     percentEncodedStringState = 0;
                                 }
                                 break;
                             case 2:
-                                if ((currentChar >= '0' && currentChar <= '9') ||
-                                    (currentChar >= 'A' && currentChar <= 'Z') ||
-                                    (currentChar >= 'a' && currentChar <= 'z')) {
+                                if (isHexCharacter(currentChar)) {
                                     asciiOnly = YES;
                                 } else {
                                     percentEncodedStringState = 0;
@@ -309,17 +303,17 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                     // Find empty character
                     for (NSUInteger k = location + length; k < endPos + 1; k++) {
                         unichar currentEndChar = CFStringGetCharacterFromInlineBuffer(charBuff, k);
-                        BOOL foundEmptyChar = NO;
+                        BOOL foundEndChar = NO;
                         // Iterate through all empty characters
                         for (NSUInteger l = 0; l < emptyCharsCount; l++) {
                             if (currentEndChar == emptyChars[l] ||
-                                (foundEndOfDomain && asciiOnly && currentEndChar > 0xFF)) {
-                                foundEmptyChar = YES;
+                                (foundEndOfDomain && asciiOnly && currentEndChar >= 0x80)) {
+                                foundEndChar = YES;
                                 break;
                             }
                         }
                         
-                        if (foundEmptyChar) {
+                        if (foundEndChar) {
                             // Do not include the empty character as match. Simply stop scanning.
                             break;
                         } else {
