@@ -228,7 +228,7 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                         if (currentChar == 0x00) {
                             // The character after the exception domain name has to be either an empty
                             // character, slash '/' or non-ASCII character.
-                            if (targetChar == '/' || targetChar > 0x80) {
+                            if (targetChar == '/' || targetChar >= 0x80) {
                                 asciiOnly = YES;
                             } else {
                                 for (NSUInteger m = 0; m < emptyCharsCount; m++) {
