@@ -326,6 +326,16 @@ NSRange getRangeOfURL(CFStringInlineBuffer *charBuff, NSUInteger startPos, NSUIn
                     }
                 }
                 
+                // The URL cannot end with , or .
+                for (NSInteger k = location + length - 1; k >= 0; k--) {
+                    unichar currentEndChar = CFStringGetCharacterFromInlineBuffer(charBuff, k);
+                    if (currentEndChar == '.' || currentEndChar == ',') {
+                        length--;
+                    } else {
+                        break;
+                    }
+                }
+                
                 // Found the URL. Stop.
                 break;
             }

@@ -38,6 +38,7 @@ int main (int argc, const char * argv[]) {
     
     NSLog(@"%@", [@"http://j.mp/b9PWcWテスト[http://j.mp/b9PWcW]http://j.mp/b9PWcWテスト" stringByReplacingURL:@"http://j.mp/b9PWcW" withURL:@"http://groups.google.com/group/twitter-api-announce"]);
     
+    testString(@"http://test.com http://test.com. http://test.com, http://test.com..,, http://test.com");
     testString(@"http://j.mp/b9PWcWテスト[http://j.mp/b9PWcW]http://j.mp/b9PWcWテストhttp://ja.wikipedia.org/wiki/バール_(単位){http://ja.wikipedia.org/wiki/バール_(単位)}");
     testString(@"http://ja.wikipedia.org/wiki/テスト http://ja.wikipedia.org/wiki/%E3%83%86%E3%82%B9%E3%83%88テスト テスト");
     testString(@"(http://en.wikipedia.org/wiki/Perl_(disambiguation))");
