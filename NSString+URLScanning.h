@@ -42,6 +42,7 @@
 - (NSArray *)getURLStrings;
 - (BOOL)containsURL;
 - (NSString *)stringByReplacingURL:(NSString *)sourceUrl withURL:(NSString *)targetUrl;
+- (NSString *)stringByReplacingURL:(NSString *)sourceUrl withURL:(NSString *)targetUrl all:(BOOL)all;
 @end
 
 #ifdef __BLOCKS__

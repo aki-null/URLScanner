@@ -628,6 +628,10 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
 }
 
 - (NSString *)stringByReplacingURL:(NSString *)sourceUrl withURL:(NSString *)targetUrl {
+    return [self stringByReplacingURL:sourceUrl withURL:targetUrl all:YES];
+}
+
+- (NSString *)stringByReplacingURL:(NSString *)sourceUrl withURL:(NSString *)targetUrl all:(BOOL)all {
     if (!sourceUrl || !targetUrl || [sourceUrl isEqualToString:targetUrl]) {
         return self;
     }
@@ -650,6 +654,7 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
         NSUInteger groupCount = getGroupRangesForURL(result, finalGroups, 0, charBuff);
         if (groupCount == 0) {
             free(finalGroups);
+            [result release];
             return self;
         }
         
@@ -690,6 +695,13 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
                 } else {
                     [result replaceCharactersInRange:strRange withString:targetUrl];
                     scanIndex += lengthDiff;
+                }
+                
+                if (!all) {
+                    NSString *finalResult = [[result copy] autorelease];
+                    [result release];
+                    
+                    return finalResult;
                 }
                 
                 break;
