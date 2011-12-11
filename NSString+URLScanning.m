@@ -700,6 +700,7 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
                 if (!all) {
                     NSString *finalResult = [[result copy] autorelease];
                     [result release];
+                    free(finalGroups);
                     
                     return finalResult;
                 }
