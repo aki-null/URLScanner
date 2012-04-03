@@ -527,7 +527,7 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
     }
     
     const NSUInteger length = totalLength - startIndex;
-    *numberOfURLs = 0;
+    NSUInteger tempUrlCount = 0;
         
     NSRange *allMatches = malloc(sizeof(NSRange) * (length / START_PTNS_MIN_LENGTH));
     
@@ -553,16 +553,20 @@ NSUInteger getGroupRangesForURL(NSString *self, NSUInteger *finalGroups, NSUInte
                 urlRange.location += startIndex;
                 
                 // Record the range of URLs
-                allMatches[*numberOfURLs] = urlRange;
-                (*numberOfURLs)++;
+                allMatches[tempUrlCount] = urlRange;
+                tempUrlCount++;
             }
         }
     }
     
     // Create autoreleased mutable byte array
-    NSRange *result = [[NSMutableData dataWithLength:*numberOfURLs * sizeof(NSRange)] mutableBytes];
-    memcpy(result, allMatches, sizeof(NSRange) * *numberOfURLs);
+    NSRange *result = [[NSMutableData dataWithLength:tempUrlCount * sizeof(NSRange)] mutableBytes];
+    memcpy(result, allMatches, sizeof(NSRange) * tempUrlCount);
     free(allMatches);
+    
+    if (numberOfURLs) {
+        *numberOfURLs = tempUrlCount;
+    }
     
     return result;
 }
